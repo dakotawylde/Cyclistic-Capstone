@@ -1,0 +1,112 @@
+---
+title: "Cyclistic"
+author: "Dakota Wylde"
+date: '2022-06-25'
+output: github_document
+---
+
+## Setting up my Environment
+Here, I will download and install the R packages necessary to the analysis, such as 'tidyverse' and 'dplyr'.
+
+```{r}
+setwd("D:/Datasets/Cyclistic")
+library(tidyverse)
+library(lubridate) 
+library(ggplot2)
+
+# Tell R to read the appropriate CSV files
+
+jun2021 <- read_csv("202106-divvy-tripdata.csv")
+jul2021 <- read_csv("202107-divvy-tripdata.csv")
+aug2021 <- read_csv("202108-divvy-tripdata.csv")
+sep2021 <- read_csv("202109-divvy-tripdata.csv")
+oct2021 <- read_csv("202110-divvy-tripdata.csv")
+nov2021 <- read_csv("202111-divvy-tripdata.csv")
+dec2021 <- read_csv("202112-divvy-tripdata.csv")
+jan2022 <- read_csv("202201-divvy-tripdata.csv")
+feb2022 <- read_csv("202202-divvy-tripdata.csv")
+mar2022 <- read_csv("202203-divvy-tripdata.csv")
+apr2022 <- read_csv("202204-divvy-tripdata.csv")
+may2022 <- read_csv("202205-divvy-tripdata.csv")
+```
+
+## Reorganizing the Data
+The data is separated by month. In order to do a comprehensive analysis of the previous year, I will need them to be reorganized into a single data frame, add columns that distinguish different days of the week, and add a column that indicates ride length. 
+
+```{r}
+all_trips <- bind_rows(jun2021, jul2021, aug2021,
+                       sep2021, oct2021, nov2021,
+                       dec2021, jan2022, feb2022,
+                       mar2022, apr2022, may2022)
+
+all_trips$date <- as.Date(all_trips$started_at)
+all_trips$month <- format(as.Date(all_trips$date),"%m")
+all_trips$day  <-  format(as.Date(all_trips$date), "%d")
+all_trips$year <- format(as.Date(all_trips$date), "%Y")
+all_trips$day_of_week <- format(as.Date(all_trips$date), "%A")
+all_trips$ride_length <-  difftime(all_trips$ended_at, all_trips$started_at)
+
+```
+
+## Cleaning the Data
+Our analysis should exclude irrelevant data, such as trips with a distance of zero. This command will prune all such trips.
+
+```{r}
+all_trips_v4 <- all_trips[!(all_trips$ride_length<0),]
+```
+
+## Visualizing the Data
+Here, we will make several comparisons of how casual customers and members behave. 
+
+This is a visualization that compares the total number of rides taken on a given day of the week between casual riders and members. 
+
+```{r}
+all_trips_v4 %>% 
+  mutate(weekday=wday(started_at,label=TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarize(number_of_rides=n()
+            ,average_duration=mean(ride_length)) %>% 
+  arrange(member_casual, weekday) %>% 
+  ggplot(aes(x=weekday, y=number_of_rides, fill=member_casual))+
+  geom_col(position = "dodge")
+```
+This visualization shows that casual riders and members take a similar number of trips. However, members tend to take more rides during the week, while casual riders take more trips on the weekend. 
+
+The visualization only tells part of the story. While the number of trips taken is about equal, there is a stark difference between casuals and members in terms of average trip duration.
+
+```{r}
+all_trips_v4 %>% 
+  mutate(weekday=wday(started_at,label=TRUE)) %>% 
+  group_by(member_casual,weekday) %>% 
+  summarize(number_of_rides=n()
+            ,average_duration=mean(ride_length)) %>% 
+  arrange(member_casual,weekday) %>% 
+  ggplot(aes(x=weekday, y= average_duration, fill=member_casual))+
+  geom_col(position="dodge")
+```
+
+Looking at the data from a monthly perspective yields similar results. Members and Casuals seem to take roughly similar numbers of trips, though members seem to be more consistent in their ridership, riding through the fall and winter months. Casuals still seem to take much longer trips on average.
+
+```{r}
+all_trips_v4 %>% 
+  group_by(member_casual,month) %>% 
+  summarize(number_of_rides=n()
+            ,average_duration=mean(ride_length)) %>% 
+  arrange(member_casual,month) %>% 
+  ggplot(aes(x=month, y=number_of_rides, fill=member_casual))+
+  geom_col(position = "dodge")
+
+all_trips_v4 %>% 
+  group_by(member_casual,month) %>% 
+  summarize(number_of_rides=n()
+            ,average_duration=mean(ride_length)) %>% 
+  arrange(member_casual,month) %>% 
+  ggplot(aes(x=month, y=average_duration, fill=member_casual))+
+  geom_col(position = "dodge")
+
+```
+
+
+In summary, members and casual riders  seem to consistently take trips in comparable quantities. However, casual riders are more inclined to ride on weekends and during the summer, suggesting that their ridership tends to be recreational in nature. Members have a much more consistent ridership, biking reliably on weekdays and through the colder months. 
+
+In contrast, casual riders on average take much longer trips than members do. This pattern is consistent regardless of the day of the week or time of year. 
